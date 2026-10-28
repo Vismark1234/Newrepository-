@@ -46,3 +46,19 @@ display(resultado["resumen"])
 ```
 
 Se comparan todas las columnas numéricas, sin seleccionar una variable objetivo. Los coeficientes mantienen el signo (positivo o negativo), y la tabla se ordena por su valor absoluto de Spearman. Si existen identificadores numéricos o códigos de categoría, conviene excluirlos del análisis numérico o convertirlos a categorías.
+
+## Modo configurable: todas las numéricas + categorías indicadas
+
+```python
+from analisis_configurable import analizar
+
+resultado = analizar(
+    datos,
+    categoricas=["Segmento", "TipoCredito"],
+    excluir=["ClienteKey", "CarteraKey"]
+)
+display(resultado["relaciones"])
+display(resultado["faltantes"])
+```
+
+Las columnas numéricas se incluyen automáticamente; las columnas object, fechas y textos no indicados como categóricos se ignoran. Las categorías elegidas se convierten a string para que códigos como 1, 2 y 3 no se interpreten como cantidades. El resto de numéricas se trata como numérico aunque tenga pocos valores únicos. Las relaciones son exploratorias y no implican causalidad.
