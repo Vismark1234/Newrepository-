@@ -21,3 +21,11 @@ def resumen_calidad(datos: pd.DataFrame) -> pd.DataFrame:
     })
     resultado["completos"] = n - resultado["faltantes"]
     return resultado.sort_values("porcentaje_faltante", ascending=False)
+
+
+# ============================================================
+# EJEMPLO DE USO EN JUPYTER (ejecutar después de definir funciones)
+# ============================================================
+# datos debe ser tu DataFrame de pandas.
+# datos_limpios = normalizar_vacios(datos)
+# display(resumen_calidad(datos_limpios))
