@@ -1,103 +1,57 @@
 /*
-PERFILADO MENSUAL DE TODAS LAS COLUMNAS - SQL SERVER
-Indica el mes y reemplaza el SELECT que llena #DatosMes.
-El resultado tiene una fila por columna: nulos, vacíos y porcentaje.
-No requiere procedimientos ni otros archivos.
+ANÁLISIS MENSUAL DE NULOS Y VACÍOS - SQL SERVER 2017+
+Sin cursor, sin procedimiento almacenado y sin WHILE.
+Cambia únicamente el mes, la tabla y la columna de fecha.
 */
 
-DECLARE @Mes DATE = '2026-09-01';  -- Cambia el mes
+DECLARE @Mes DATE = '2026-09-01';
 
--- 1) Preparar los datos de UN MES. Puedes usar JOIN y varias tablas.
---    Reemplaza dbo.MiTabla y FechaRegistro con tus nombres reales.
 SELECT *
-INTO #DatosMes
+INTO #Datos
 FROM dbo.MiTabla
-WHERE FechaRegistro >= DATEFROMPARTS(YEAR(@Mes), MONTH(@Mes), 1)
-  AND FechaRegistro < DATEADD(MONTH, 1, DATEFROMPARTS(YEAR(@Mes), MONTH(@Mes), 1));
+WHERE FechaRegistro >= @Mes
+  AND FechaRegistro < DATEADD(MONTH, 1, @Mes);
 
--- 2) Crear la tabla donde se guardará el resultado.
-CREATE TABLE #Resultado (
-    Columna SYSNAME,
-    TotalFilas BIGINT,
-    Nulos BIGINT,
-    Vacios BIGINT,
-    TotalFaltantes BIGINT,
-    PorcentajeFaltante DECIMAL(6,2)
-);
-
--- 3) Recorrer automáticamente todas las columnas.
-DECLARE @Columna SYSNAME;
-DECLARE @Tipo SYSNAME;
 DECLARE @SQL NVARCHAR(MAX);
 
-DECLARE columnas CURSOR LOCAL FAST_FORWARD FOR
-SELECT c.name, t.name
-FROM tempdb.sys.columns AS c
-JOIN tempdb.sys.types AS t ON c.user_type_id = t.user_type_id
-WHERE c.object_id = OBJECT_ID('tempdb..#DatosMes')
-ORDER BY c.column_id;
+SELECT @SQL = STRING_AGG(
+    CAST(
+        'SELECT ' + QUOTENAME(name, '''') + ' AS Columna, ' +
+        'COUNT_BIG(*) AS TotalFilas, ' +
+        'SUM(CASE WHEN ' + QUOTENAME(name) + ' IS NULL THEN 1 ELSE 0 END) AS Nulos, ' +
+        CASE
+            WHEN system_type_id IN (35, 99, 167, 175, 231, 239)
+            THEN 'SUM(CASE WHEN ' + QUOTENAME(name) + ' IS NOT NULL AND ' +
+                 'LTRIM(RTRIM(CONVERT(NVARCHAR(MAX), ' + QUOTENAME(name) +
+                 '))) = '''' THEN 1 ELSE 0 END)'
+            ELSE 'CAST(0 AS INT)'
+        END + ' AS Vacios ' +
+        'FROM #Datos'
+    AS NVARCHAR(MAX)),
+    ' UNION ALL '
+)
+FROM tempdb.sys.columns
+WHERE object_id = OBJECT_ID('tempdb..#Datos');
 
-OPEN columnas;
-FETCH NEXT FROM columnas INTO @Columna, @Tipo;
+SET @SQL = '
+SELECT Columna, TotalFilas, Nulos, Vacios,
+       Nulos + Vacios AS TotalFaltantes,
+       CAST(100.0 * (Nulos + Vacios) / NULLIF(TotalFilas, 0) AS DECIMAL(6,2))
+           AS PorcentajeFaltante
+FROM (' + @SQL + ') AS Resultado
+ORDER BY PorcentajeFaltante DESC, Columna;';
 
-WHILE @@FETCH_STATUS = 0
-BEGIN
-    -- En columnas de texto, vacío significa '' o solamente espacios.
-    -- En números/fechas únicamente se contabilizan los NULL.
-    DECLARE @CondicionVacio NVARCHAR(MAX) = '0 = 1';
+EXEC sp_executesql @SQL;
 
-    IF @Tipo IN ('varchar', 'nvarchar', 'char', 'nchar', 'text', 'ntext')
-    BEGIN
-        SET @CondicionVacio =
-            'NULLIF(LTRIM(RTRIM(CONVERT(NVARCHAR(MAX), ' +
-            QUOTENAME(@Columna) + ')), '''') IS NULL AND ' +
-            QUOTENAME(@Columna) + ' IS NOT NULL';
-    END;
-
-    SET @SQL = N'
-    INSERT INTO #Resultado
-    SELECT
-        @NombreColumna,
-        COUNT_BIG(*),
-        COALESCE(SUM(CASE WHEN ' + QUOTENAME(@Columna) + N' IS NULL THEN CAST(1 AS BIGINT) ELSE 0 END), 0),
-        COALESCE(SUM(CASE WHEN ' + @CondicionVacio + N' THEN CAST(1 AS BIGINT) ELSE 0 END), 0),
-        COALESCE(SUM(CASE WHEN ' + QUOTENAME(@Columna) + N' IS NULL OR (' + @CondicionVacio + N')
-                          THEN CAST(1 AS BIGINT) ELSE 0 END), 0),
-        CAST(
-            100.0 * COALESCE(SUM(CASE WHEN ' + QUOTENAME(@Columna) + N' IS NULL OR (' + @CondicionVacio + N')
-                                         THEN CAST(1 AS BIGINT) ELSE 0 END), 0)
-            / NULLIF(COUNT_BIG(*), 0)
-            AS DECIMAL(6,2)
-        )
-    FROM #DatosMes;';
-
-    EXEC sp_executesql @SQL, N'@NombreColumna SYSNAME', @NombreColumna = @Columna;
-
-    FETCH NEXT FROM columnas INTO @Columna, @Tipo;
-END;
-
-CLOSE columnas;
-DEALLOCATE columnas;
-
--- 4) Mostrar el resultado: primero las columnas con más faltantes.
-SELECT Columna, TotalFilas, Nulos, Vacios, TotalFaltantes, PorcentajeFaltante
-FROM #Resultado
-ORDER BY PorcentajeFaltante DESC, TotalFaltantes DESC, Columna;
-
-DROP TABLE #Resultado;
-DROP TABLE #DatosMes;
+DROP TABLE #Datos;
 
 /*
-EJEMPLO DE SALIDA (valores ilustrativos):
-Columna       TotalFilas  Nulos  Vacios  TotalFaltantes  PorcentajeFaltante
-Ocupacion     1000        150    50      200             20.00
-Ingresos      1000        120     0      120             12.00
-Saldo         1000          0     0        0              0.00
+EJEMPLO EN SSMS:
+1. Cambia @Mes.
+2. Reemplaza dbo.MiTabla y FechaRegistro por tus nombres.
+3. Ejecuta todo el bloque.
+4. El resultado tiene una fila por cada columna del SELECT.
 
-NOTAS:
-- El porcentaje se calcula respecto a las filas del mes.
-- NULL y vacío se cuentan por separado, sin duplicar faltantes.
-- Para buen rendimiento, filtra por fecha ANTES de recorrer columnas.
-- La fecha del filtro debe ser DATE/DATETIME; si es INT YYYYMMDD,
-  adapta el WHERE para comparar enteros.
+Para varias tablas, reemplaza el SELECT INTO #Datos por tu SELECT con JOIN.
+Las columnas numéricas y fechas solo se consideran faltantes si son NULL.
 */
