@@ -1,58 +1,68 @@
 /*
-CONSULTA SIMPLE DE CALIDAD MENSUAL - SQL SERVER
-Sin cursor, sin SQL dinámico, sin procedimientos.
-AGREGA TUS COLUMNAS EN LOS DOS LUGARES MARCADOS.
+CALIDAD DE DATOS POR MES - SQL SERVER 2017+
+Solo edita @Mes, @Columnas y el SELECT de origen.
+No crea procedimientos, no usa cursores ni ciclos.
 */
-
 DECLARE @Mes DATE = '2026-09-01';
+DECLARE @Columnas NVARCHAR(MAX) = 'Ingresos, Ocupacion, Saldo, EstadoCivil';
 
-WITH DatosMes AS (
-    SELECT
-        -- >>> LUGAR 1: AGREGA AQUÍ TODAS TUS COLUMNAS <<<
-        ClienteKey,
-        Ingresos,
-        Ocupacion
-    FROM dbo.MiTabla
-    WHERE FechaRegistro >= @Mes
-      AND FechaRegistro < DATEADD(MONTH, 1, @Mes)
-),
-Resumen AS (
-    SELECT
-        COUNT_BIG(*) AS Total,
-        -- >>> LUGAR 2: AGREGA UNA EXPRESIÓN POR CADA COLUMNA <<<
-        SUM(CASE WHEN ClienteKey IS NULL THEN 1 ELSE 0 END) AS Nulos_ClienteKey,
-        SUM(CASE WHEN Ingresos IS NULL THEN 1 ELSE 0 END) AS Nulos_Ingresos,
-        SUM(CASE WHEN Ocupacion IS NULL THEN 1 ELSE 0 END) AS Nulos_Ocupacion,
-        SUM(CASE WHEN Ocupacion IS NOT NULL AND LTRIM(RTRIM(Ocupacion)) = '' THEN 1 ELSE 0 END) AS Vacios_Ocupacion
-    FROM DatosMes
-)
-SELECT
-    v.Columna,
-    r.Total,
-    v.Nulos,
-    v.Vacios,
-    v.Nulos + v.Vacios AS Faltantes,
-    CAST(100.0 * (v.Nulos + v.Vacios) / NULLIF(r.Total, 0) AS DECIMAL(6,2)) AS Porcentaje
-FROM Resumen AS r
-CROSS APPLY (VALUES
-    -- >>> LUGAR 3: AGREGA AQUÍ UNA FILA POR CADA COLUMNA <<<
-    ('ClienteKey', r.Nulos_ClienteKey, 0),
-    ('Ingresos', r.Nulos_Ingresos, 0),
-    ('Ocupacion', r.Nulos_Ocupacion, r.Vacios_Ocupacion)
-) AS v(Columna, Nulos, Vacios)
-ORDER BY Porcentaje DESC, Columna;
+-- Reemplaza este SELECT por tu consulta real del mes (puede tener JOIN).
+SELECT *
+INTO #Datos
+FROM dbo.MiTabla
+WHERE FechaRegistro >= @Mes
+  AND FechaRegistro < DATEADD(MONTH, 1, @Mes);
+
+DECLARE @SQL NVARCHAR(MAX);
+
+-- Usa únicamente las columnas escritas en @Columnas.
+-- QUOTENAME evita problemas con espacios o caracteres especiales en nombres.
+SELECT @SQL = STRING_AGG(CAST(
+    'SELECT ' + QUOTENAME(c.name, '''') + ' AS Columna, ' +
+    'COUNT_BIG(*) AS Total, ' +
+    'COUNT_BIG(*) - COUNT(' + QUOTENAME(c.name) + ') AS Nulos, ' +
+    CASE WHEN c.system_type_id IN (35, 99, 167, 175, 231, 239)
+         THEN 'SUM(CASE WHEN ' + QUOTENAME(c.name) +
+              ' IS NOT NULL AND LTRIM(RTRIM(CONVERT(NVARCHAR(MAX), ' +
+              QUOTENAME(c.name) + '))) = '''' THEN 1 ELSE 0 END)'
+         ELSE 'COUNT_BIG(*) * 0'
+    END + ' AS Vacios FROM #Datos'
+AS NVARCHAR(MAX)), ' UNION ALL ')
+FROM tempdb.sys.columns AS c
+JOIN (
+    SELECT DISTINCT LTRIM(RTRIM(value)) AS Nombre
+    FROM STRING_SPLIT(@Columnas, ',')
+) AS elegidas ON elegidas.Nombre = c.name
+WHERE c.object_id = OBJECT_ID('tempdb..#Datos');
+
+IF @SQL IS NULL
+BEGIN
+    DROP TABLE #Datos;
+    THROW 50000, 'Ninguna columna de @Columnas coincide con #Datos.', 1;
+END;
+
+SET @SQL = '
+SELECT Columna, Total, Nulos, Vacios,
+       Nulos + Vacios AS Faltantes,
+       CAST(100.0 * (Nulos + Vacios) / NULLIF(Total, 0)
+            AS DECIMAL(6,2)) AS Porcentaje
+FROM (' + @SQL + ') AS R
+ORDER BY Porcentaje DESC, Columna;';
+
+EXEC sys.sp_executesql @SQL;
+DROP TABLE #Datos;
 
 /*
-EJEMPLO PARA AGREGAR OTRA COLUMNA:
-1) En DatosMes:       Saldo,
-2) En Resumen:        SUM(CASE WHEN Saldo IS NULL THEN 1 ELSE 0 END) AS Nulos_Saldo,
-3) En CROSS APPLY:    ('Saldo', r.Nulos_Saldo, 0),
+EJEMPLO:
+DECLARE @Columnas NVARCHAR(MAX) = 'Ingresos, Ocupacion, Saldo';
 
-Si es texto, agrega además su conteo de vacíos:
-SUM(CASE WHEN MiTexto IS NOT NULL AND LTRIM(RTRIM(MiTexto)) = ''
-         THEN 1 ELSE 0 END) AS Vacios_MiTexto
-Y en CROSS APPLY: ('MiTexto', r.Nulos_MiTexto, r.Vacios_MiTexto)
+RESULTADO:
+Columna     Total   Nulos   Vacios   Faltantes   Porcentaje
+Ingresos    10000   1500    0        1500        15.00
+Ocupacion   10000    200    300       500         5.00
+Saldo       10000      0      0         0         0.00
 
-Sustituye los nombres de ejemplo y el FROM por tu consulta real.
-El mes se filtra antes de calcular los porcentajes.
+Nota: los nombres deben coincidir con las columnas del SELECT de origen.
+Las columnas de texto cuentan NULL, cadenas vacías y espacios.
+Las numéricas/fechas cuentan NULL.
 */
