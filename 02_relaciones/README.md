@@ -33,3 +33,16 @@ print(matriz_coausencia(datos))
 ```
 
 Antes del análisis, convierte códigos especiales de ausencia a NaN y verifica la calidad de tus columnas. Las asociaciones con categorías poco frecuentes pueden ser inestables; revisa siempre el número de registros.
+
+## Comparación automática de valores numéricos
+
+```python
+from comparacion_numerica import analizar_numericas, correlaciones_de_variable
+
+resultado = analizar_numericas(datos)
+display(resultado["correlaciones"].head(30))
+display(resultado["matriz_spearman"])
+display(resultado["resumen"])
+```
+
+Se comparan todas las columnas numéricas, sin seleccionar una variable objetivo. Los coeficientes mantienen el signo (positivo o negativo), y la tabla se ordena por su valor absoluto de Spearman. Si existen identificadores numéricos o códigos de categoría, conviene excluirlos del análisis numérico o convertirlos a categorías.
