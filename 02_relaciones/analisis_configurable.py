@@ -66,3 +66,17 @@ def analizar(datos, categoricas=None, excluir=None, max_categorias=20):
         "relaciones": relaciones,
         "faltantes": faltantes.reset_index(drop=True)
     }
+
+
+# ============================================================
+# EJEMPLO EN JUPYTER: todas las numéricas + categorías elegidas
+# ============================================================
+# categoricas = ["Segmento", "TipoCredito"]  # Nombres reales
+# excluir = ["ClienteKey", "CarteraKey"]     # Opcional
+# resultado = analizar(datos, categoricas=categoricas, excluir=excluir)
+# display(resultado["relaciones"].head(30))
+# display(resultado["faltantes"].head(30))
+#
+# Si no tienes categorías:
+# resultado = analizar(datos)
+# display(resultado["relaciones"].head(30))
