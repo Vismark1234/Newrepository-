@@ -1,30 +1,40 @@
-# Análisis de calidad de datos con Python
+# Relaciones entre variables y calidad de datos
 
-Herramientas para explorar conjuntos de datos con numerosas variables, detectar valores faltantes y estudiar sus posibles causas.
+Código Python sencillo y editable para explorar conjuntos de datos con muchas columnas.
 
-## Carpetas
-- **01_perfilado/**: resumen automático de tipos, cardinalidad, nulos, vacíos y espacios.
-- **02_relaciones/**: relación entre la ausencia y otras variables; matriz de coausencia.
-- **03_imputacion/**: imputación numérica y categórica sin fuga de información.
-- **ejemplos/**: uso con un DataFrame llamado `datos`.
+## Estructura
+- `01_perfilado/`: tipos de datos, valores únicos y datos faltantes.
+- `02_relaciones/`: relaciones entre numéricas, categóricas y ausencia de datos.
+- `03_imputacion/`: imputación básica.
+- `ejemplos/`: ejecución con el DataFrame `datos`.
 
 ## Instalación
 ```bash
 pip install -r requirements.txt
 ```
 
-## Uso en Jupyter
+## En Jupyter Notebook
 ```python
 import sys
 sys.path.insert(0, "01_perfilado")
 sys.path.insert(0, "02_relaciones")
-from perfilado import normalizar_vacios, resumen_calidad
-from relaciones import relacion_faltantes, matriz_coausencia
 
-df = normalizar_vacios(datos)
-print(resumen_calidad(df).head(30))
-print(matriz_coausencia(df))
-print(relacion_faltantes(df, objetivo="NOMBRE_DE_COLUMNA").head(20))
+from perfilado import normalizar_vacios, resumen_calidad
+from relaciones import relacion_pares, relacion_faltantes, faltantes_por_categoria
+
+datos = normalizar_vacios(datos)
+print(resumen_calidad(datos).head(20))
+
+# Relaciones entre todas las columnas
+relaciones = relacion_pares(datos)
+print(relaciones.head(30))
+
+# ¿Con qué variables se relaciona la ausencia de una columna?
+ranking = relacion_faltantes(datos, "Ingreso")
+print(ranking.head(20))
+
+# ¿Qué porcentaje falta en cada categoría?
+print(faltantes_por_categoria(datos, "Ingreso", "Segmento"))
 ```
 
-Las asociaciones son exploratorias y no demuestran causalidad. Revisa los códigos especiales de ausencia según tu fuente de datos. Ajusta imputadores únicamente sobre el conjunto de entrenamiento.
+Sustituye `Ingreso` y `Segmento` por nombres de columnas reales. Se utiliza código explícito, sin lambdas. Las métricas son exploratorias, no prueban causalidad. Las medidas de asociación no son idénticas entre tipos de variables; revisa siempre el tamaño de cada grupo.
