@@ -76,3 +76,15 @@ def comparar_por_diferencias(datos, columna_a, columna_b):
     tabla["diferencia"] = tabla[columna_a] - tabla[columna_b]
     tabla["diferencia_absoluta"] = tabla["diferencia"].abs()
     return tabla
+
+
+# ============================================================
+# EJEMPLO DE USO EN JUPYTER
+# ============================================================
+# resultado_num = analizar_numericas(datos)
+# display(resultado_num["correlaciones"].head(30))
+# display(resultado_num["matriz_spearman"])
+# display(resultado_num["resumen"])
+#
+# Opcional: diferencia fila a fila entre dos columnas comparables:
+# display(comparar_por_diferencias(datos, "Saldo", "Deuda").head(20))
