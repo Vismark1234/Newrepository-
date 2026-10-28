@@ -85,3 +85,16 @@ def exportar_excel(resultado, archivo="diagnostico_variables.xlsx"):
         resultado["faltantes"].to_excel(escritor, sheet_name="Faltantes", index=False)
         resultado["categorias"].to_excel(escritor, sheet_name="Categorias", index=False)
         resultado["coausencia"].to_excel(escritor, sheet_name="Coausencia")
+
+
+# ============================================================
+# EJEMPLO EN JUPYTER: todas las variables incluidas
+# ============================================================
+# resultado = analizar_todo(datos)
+# display(resultado["relaciones"].head(30))
+# display(resultado["faltantes"].head(30))
+# display(resultado["categorias"].head(30))
+# display(resultado["coausencia"])
+#
+# Opcional: exportar a Excel (requiere openpyxl)
+# exportar_excel(resultado, "diagnostico_variables.xlsx")
