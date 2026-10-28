@@ -146,3 +146,19 @@ def faltantes_por_categoria(datos, objetivo, categoria, max_categorias=20):
 def matriz_coausencia(datos):
     """Correlación entre indicadores de ausencia (NaN en columnas sin variación)."""
     return datos.isna().astype(int).corr()
+
+
+# ============================================================
+# EJEMPLOS EN JUPYTER: elimina el signo # para ejecutar
+# ============================================================
+# resultado_pares = relacion_pares(datos)
+# display(resultado_pares.head(30))
+#
+# ausencias = matriz_coausencia(datos)
+# display(ausencias)
+#
+# Para estudiar una columna concreta, solo si lo necesitas:
+# objetivo = "Ingresos"  # Cambia por una columna real
+# display(relacion_faltantes(datos, objetivo).head(30))
+# categoria = "Segmento"  # Cambia por una columna real
+# display(faltantes_por_categoria(datos, objetivo, categoria))
