@@ -23,3 +23,15 @@ def crear_imputador(X_entrenamiento: pd.DataFrame):
 # imputador = crear_imputador(X_train)
 # X_train_imputado = imputador.fit_transform(X_train)
 # X_test_imputado = imputador.transform(X_test)
+
+
+# ============================================================
+# EJEMPLO EN JUPYTER (ajustar SOLO con datos de entrenamiento)
+# ============================================================
+# from sklearn.model_selection import train_test_split
+# X_train, X_test = train_test_split(datos, test_size=0.2, random_state=42)
+# imputador = crear_imputador(X_train)
+# entrenamiento_imputado = imputador.fit_transform(X_train)
+# prueba_imputada = imputador.transform(X_test)
+# print("Entrenamiento:", entrenamiento_imputado.shape)
+# print("Prueba:", prueba_imputada.shape)
