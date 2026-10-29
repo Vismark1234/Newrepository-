@@ -61,3 +61,24 @@ exportar_excel(resultado)
 ```
 
 Para usar `normalizar_vacios`, añade primero `sys.path.insert(0, "01_perfilado")`. El análisis de pares con 103 columnas puede requerir tiempo; las medidas son exploratorias y no prueban causalidad. Para exportar a Excel, instala `openpyxl`.
+
+
+## Tabla de frecuencias de categorías
+
+Una función independiente que agrupa una columna categórica y entrega cantidad, porcentaje respecto al total de filas, porcentaje acumulado y una fila TOTAL. Los valores vacíos y nulos se incluyen como (Sin dato).
+
+```python
+import sys
+sys.path.insert(0, "01_perfilado")
+from frecuencias_categoricas import frecuencia_categorica
+
+tabla = frecuencia_categorica(datos, "Segmento")
+display(tabla)
+```
+
+El gráfico presenta cantidad y porcentaje. Por defecto muestra hasta 15 categorías y, si existen más, agrupa las restantes como OTRAS CATEGORÍAS solo en el gráfico; la tabla siempre conserva todas.
+
+```python
+tabla = frecuencia_categorica(datos, "Ciudad", max_categorias=10)
+display(tabla)
+```
