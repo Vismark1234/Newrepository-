@@ -1,5 +1,14 @@
 # Relaciones entre variables y calidad de datos
 
+## Artículo de tuberculosis — documentos Word
+
+Los tres documentos finales en formato APA están disponibles en la carpeta
+[`articulo-tuberculosis`](./articulo-tuberculosis/).
+
+- [Edición 1: casi final](./articulo-tuberculosis/Articulo_Tuberculosis_Edicion_1_Casi_Final_APA.docx)
+- [Edición 2: resumida](./articulo-tuberculosis/Articulo_Tuberculosis_Edicion_2_Resumida_APA.docx)
+- [Edición 3: presentación de 8 a 12 páginas](./articulo-tuberculosis/Articulo_Tuberculosis_Edicion_3_Presentacion_8_12_paginas_APA.docx)
+
 Código Python sencillo y editable para explorar conjuntos de datos con muchas columnas.
 
 ## Estructura
