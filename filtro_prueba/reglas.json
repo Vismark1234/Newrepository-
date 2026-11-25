@@ -1,0 +1,39 @@
+{
+  "idioma_ocr": "spa+eng",
+  "similitud_texto": 0.82,
+  "palabras_que_siempre_se_envian": [
+    "invoice"
+  ],
+  "minimo_puntos": 60,
+  "minima_proporcion": 0.5,
+  "maximo_sobrante": 0.03,
+  "formatos": [
+    {
+      "nombre": "formulario",
+      "activo": false,
+      "titulos_encabezado": [],
+      "plantillas": [
+        "plantillas/formulario.png"
+      ],
+      "zonas_variables": []
+    },
+    {
+      "nombre": "documento_titulos",
+      "activo": false,
+      "titulos_encabezado": [],
+      "plantillas": [
+        "plantillas/documento_titulos.png"
+      ],
+      "zonas_variables": []
+    },
+    {
+      "nombre": "carta_colores",
+      "activo": false,
+      "titulos_encabezado": [],
+      "plantillas": [
+        "plantillas/carta_colores.png"
+      ],
+      "zonas_variables": []
+    }
+  ]
+}
