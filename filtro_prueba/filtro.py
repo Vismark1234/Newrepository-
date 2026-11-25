@@ -14,18 +14,10 @@ from pathlib import Path
 
 import cv2
 import numpy as np
-import pytesseract
-
-from entorno import buscar_tesseract, usar_idiomas_locales
+from rapidocr import RapidOCR
 
 BASE = Path(__file__).resolve().parent
 EXTENSIONES = (".png", ".jpg", ".jpeg", ".tif", ".tiff", ".bmp")
-
-# tesseract se ubica solo, aunque no este en el PATH
-if buscar_tesseract():
-    pytesseract.pytesseract.tesseract_cmd = str(buscar_tesseract())
-usar_idiomas_locales()
-
 
 def leer_imagen(ruta):
     # se lee por bytes para que funcionen las rutas con tildes en windows
@@ -55,20 +47,6 @@ def mascara_tinta(imagen):
     return tinta
 
 
-def girar_orientacion(imagen):
-    # corrige 90, 180 y 270 grados, si tesseract no esta seguro la deja igual
-    try:
-        datos = pytesseract.image_to_osd(imagen, output_type=pytesseract.Output.DICT)
-    except pytesseract.TesseractError:
-        return imagen
-    if datos["orientation_conf"] < 2:
-        return imagen
-    giros = {90: cv2.ROTATE_90_CLOCKWISE, 180: cv2.ROTATE_180, 270: cv2.ROTATE_90_COUNTERCLOCKWISE}
-    if datos["rotate"] in giros:
-        return cv2.rotate(imagen, giros[datos["rotate"]])
-    return imagen
-
-
 def rotar(imagen, angulo, fondo):
     # rota sin recortar las esquinas
     alto, ancho = imagen.shape
@@ -95,32 +73,63 @@ def enderezar(imagen):
     return rotar(imagen, float(mejor), 255)
 
 
+def leer_lineas(motor, imagen):
+    # devuelve una lista de (caja, texto, confianza)
+    # sin clasificador de giro, asi una pagina al reves obtiene mal puntaje
+    resultado = motor(cv2.cvtColor(imagen, cv2.COLOR_GRAY2BGR), use_cls=False)
+    if resultado.boxes is None or resultado.txts is None:
+        return []
+    return list(zip(resultado.boxes, resultado.txts, resultado.scores))
+
+
+def puntaje_lectura(lineas):
+    # mas letras leidas con seguridad en lineas horizontales significa mejor orientacion
+    total = 0.0
+    for caja, texto, confianza in lineas:
+        ancho = np.linalg.norm(np.subtract(caja[1], caja[0]))
+        alto = np.linalg.norm(np.subtract(caja[3], caja[0]))
+        if ancho > alto and confianza > 0.6:
+            total += len(texto) * confianza
+    return total
+
+
+def girar_orientacion(motor, imagen):
+    # prueba los 4 giros en una copia reducida, solo gira si hay una mejora clara
+    chica = reducir(imagen, 1200)
+    giros = (None, cv2.ROTATE_90_CLOCKWISE, cv2.ROTATE_180, cv2.ROTATE_90_COUNTERCLOCKWISE)
+    puntajes = [
+        puntaje_lectura(leer_lineas(motor, chica if g is None else cv2.rotate(chica, g)))
+        for g in giros
+    ]
+    mejor = int(np.argmax(puntajes))
+    if mejor == 0 or puntajes[mejor] < puntajes[0] * 1.2:
+        return imagen
+    return cv2.rotate(imagen, giros[mejor])
+
+
 def normalizar(texto):
     # minusculas, sin tildes y con un solo espacio
     texto = unicodedata.normalize("NFKD", texto).encode("ascii", "ignore").decode()
     return " ".join(texto.lower().split())
 
 
-def leer_texto(imagen, idioma):
+def leer_texto(motor, imagen):
     # devuelve el texto de toda la pagina y el del tercio superior
-    datos = pytesseract.image_to_data(imagen, lang=idioma, config="--psm 3", output_type=pytesseract.Output.DICT)
-    todo, arriba = [], []
-    for palabra, y in zip(datos["text"], datos["top"]):
-        if palabra.strip():
-            todo.append(palabra)
-            if y < imagen.shape[0] * 0.35:
-                arriba.append(palabra)
+    lineas = sorted(leer_lineas(motor, imagen), key=lambda l: (l[0][0][1], l[0][0][0]))
+    todo = [texto for _, texto, _ in lineas]
+    arriba = [texto for caja, texto, _ in lineas if caja[0][1] < imagen.shape[0] * 0.35]
     return normalizar(" ".join(todo)), normalizar(" ".join(arriba))
 
 
 def contiene(texto, frase, minimo):
-    # busca una frase aunque el ocr falle en algunas letras
-    frase = normalizar(frase)
-    palabras = texto.split()
-    cantidad = len(frase.split())
-    for i in range(len(palabras) - cantidad + 1):
-        trozo = " ".join(palabras[i:i + cantidad])
-        if SequenceMatcher(None, frase, trozo, autojunk=False).ratio() >= minimo:
+    # busca una frase aunque el ocr falle en letras o junte las palabras
+    texto = normalizar(texto).replace(" ", "")
+    frase = normalizar(frase).replace(" ", "")
+    if not frase:
+        return False
+    largo = len(frase)
+    for i in range(len(texto) - largo + 1):
+        if SequenceMatcher(None, frase, texto[i:i + largo], autojunk=False).ratio() >= minimo:
             return True
     return False
 
@@ -179,10 +188,10 @@ def comparar_plantilla(imagen, plantilla, zonas_variables):
     return coherentes, coherentes / len(buenos), max(peor, fuera)
 
 
-def decidir(imagen, reglas, plantillas):
+def decidir(motor, imagen, reglas, plantillas):
     # devuelve la decision, el motivo y la imagen enderezada
-    imagen = enderezar(girar_orientacion(imagen))
-    texto, encabezado = leer_texto(imagen, reglas["idioma_ocr"])
+    imagen = enderezar(girar_orientacion(motor, imagen))
+    texto, encabezado = leer_texto(motor, imagen)
 
     if esta_en_blanco(imagen, texto):
         return "omitir", "pagina en blanco", imagen
@@ -235,10 +244,7 @@ def principal():
         if not argumentos.entrada.is_dir():
             raise ValueError(f"no existe la carpeta {argumentos.entrada}")
         reglas, plantillas = cargar_reglas(argumentos.reglas.resolve())
-        pytesseract.get_tesseract_version()
-        faltan = set(reglas["idioma_ocr"].split("+") + ["osd"]) - set(pytesseract.get_languages())
-        if faltan:
-            raise ValueError(f"faltan idiomas de tesseract: {', '.join(sorted(faltan))}")
+        motor = RapidOCR()
     except Exception as error:
         print(f"ERROR: {error}", file=sys.stderr)
         return 1
@@ -265,7 +271,7 @@ def principal():
                 # un tiff de varias paginas no se analiza, se manda completo
                 if ruta.suffix.lower() in (".tif", ".tiff") and cv2.imcount(str(ruta)) > 1:
                     raise ValueError("tiff con varias paginas")
-                decision, motivo, _ = decidir(leer_imagen(ruta), reglas, plantillas)
+                decision, motivo, _ = decidir(motor, leer_imagen(ruta), reglas, plantillas)
             except Exception as error:
                 decision, motivo = "enviar", f"error del filtro: {error}"
 

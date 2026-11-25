@@ -2,17 +2,18 @@
 
 Separa imagenes en `enviar` y `omitidas`. Solo copia, no modifica ni borra originales. No llama a ninguna IA.
 
-## Instalar (una sola vez, con internet)
+## Instalar (una sola vez)
 
-1. Instalar Python 3.11 o superior.
-2. En la carpeta del script ejecutar:
+    python instalar.py
 
-       python instalar.py
+Solo instala librerias de Python con pip: rapidocr, onnxruntime, opencv-python, numpy y Pillow.
+No necesita programas aparte. pip las descarga de internet.
 
-Instala las librerias de `requirements.txt` (opencv-python, numpy, pytesseract y Pillow).
-En Windows instala Tesseract con winget si falta; puede pedir permiso o aceptar condiciones.
-Si faltan los idiomas `spa`, `eng` u `osd`, los descarga en la carpeta `tessdata` del proyecto.
-Sin winget, instalar Tesseract desde https://github.com/UB-Mannheim/tesseract/wiki y repetir el paso 2.
+Para instalar en una PC sin internet, en otra PC con el mismo Windows y la misma version de Python:
+
+    python -m pip download -r requirements.txt -d paquetes
+
+Copiar la carpeta `paquetes` junto a `instalar.py` y ejecutar `python instalar.py`.
 
 ## Usar
 
